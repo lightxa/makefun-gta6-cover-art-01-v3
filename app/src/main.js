@@ -1,138 +1,162 @@
-// Neon Heist editor: wires the page — two photo slots with crop sliders, caption and subtitle,
-// grade and size pickers, live preview, and PNG export in all three post sizes. A `?shot=` query
-// sets up a fixed scene for a screenshot instead (./shots.js).
-import { drawCover, SIZES } from './cover.js';
-import { runShot } from './shots.js';
+// Neon Heist editor: wires the controls in index.html to the cover renderer
+// and exports PNGs. Photos are read with FileReader on this machine only and
+// are never uploaded anywhere. Shot mode (?shot=...) is handled by shots.js.
 
-const canvas = document.getElementById('cover');
-const captionInput = document.getElementById('caption');
-const subtitleInput = document.getElementById('subtitle');
-const gradeSelect = document.getElementById('grade');
-const sizeSelect = document.getElementById('size');
-const status = document.getElementById('status');
+import { SIZES, defaultState, drawCover, renderCoverToCanvas } from "./cover.js";
+import { applyShotMode } from "./shots.js";
 
-// Each slot keeps its image plus its crop: zoom and pan offsets, driven by the sliders.
-const photos = {
-  hero: { img: null, zoom: 1, dx: 0, dy: 0 },
-  partner: { img: null, zoom: 1, dx: 0, dy: 0 },
-};
+const state = defaultState();
+const stage = document.getElementById("stage");
+const stageCtx = stage.getContext("2d");
 
-function redraw() {
-  drawCover(canvas, photos, {
-    caption: captionInput.value,
-    subtitle: subtitleInput.value,
-    grade: gradeSelect.value,
-  });
+function currentSize() {
+  return SIZES[state.size] || SIZES.square;
 }
 
-/** Loads an image from a URL, resolving to the image once it can be drawn. */
-export function loadImage(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
-  });
+function fitStageToSize() {
+  const { w, h } = currentSize();
+  const scale = Math.min(900 / w, 900 / h, 1);
+  stage.width = Math.round(w * scale);
+  stage.height = Math.round(h * scale);
 }
 
-function readFileAsImage(file) {
+export function repaint() {
+  fitStageToSize();
+  drawCover(stageCtx, stage.width, stage.height, state);
+}
+
+function loadImageFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      loadImage(reader.result).then(resolve, reject);
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("could not read that image"));
+      img.src = String(reader.result);
     };
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error("could not read that file"));
     reader.readAsDataURL(file);
   });
 }
 
-function bindSlot(slot) {
-  document.getElementById(`photo-${slot}`).addEventListener('change', async (e) => {
-    const file = e.target.files[0];
+function loadSample(path) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("sample did not load"));
+    img.src = path;
+  });
+}
+
+function bindPhoto(inputId, sampleId, slot) {
+  const input = document.getElementById(inputId);
+  input.addEventListener("change", async () => {
+    const file = input.files && input.files[0];
     if (!file) return;
-    photos[slot].img = await readFileAsImage(file);
-    redraw();
+    try {
+      state[slot] = await loadImageFile(file);
+      repaint();
+    } catch { /* keep the previous photo */ }
   });
-  document.getElementById(`sample-${slot}`).addEventListener('click', async () => {
-    photos[slot].img = await loadImage(`samples/${slot === 'hero' ? 'boulevard' : 'pier'}.jpg`);
-    redraw();
-  });
-  for (const [key, id] of [['zoom', `zoom-${slot}`], ['dx', `dx-${slot}`], ['dy', `dy-${slot}`]]) {
-    document.getElementById(id).addEventListener('input', (e) => {
-      photos[slot][key] = Number(e.target.value);
-      redraw();
+  const sampleBtn = document.getElementById(sampleId);
+  if (sampleBtn) {
+    sampleBtn.addEventListener("click", async () => {
+      try {
+        state[slot] = await loadSample(slot === "hero" ? "samples/boulevard.jpg" : "samples/pier.jpg");
+        repaint();
+      } catch { /* sample missing: leave the photo as it is */ }
     });
   }
 }
 
-bindSlot('hero');
-bindSlot('partner');
-captionInput.addEventListener('input', redraw);
-subtitleInput.addEventListener('input', redraw);
-gradeSelect.addEventListener('change', redraw);
+function bindCrop(prefix, slot) {
+  const cropKey = slot === "hero" ? "heroCrop" : "partnerCrop";
+  const zoom = document.getElementById("zoom" + prefix);
+  const panX = document.getElementById("panX" + prefix);
+  const panY = document.getElementById("panY" + prefix);
+  if (zoom) zoom.addEventListener("input", () => { state[cropKey].zoom = Number(zoom.value); repaint(); });
+  if (panX) panX.addEventListener("input", () => { state[cropKey].dx = Number(panX.value); repaint(); });
+  if (panY) panY.addEventListener("input", () => { state[cropKey].dy = Number(panY.value); repaint(); });
+}
 
-// Switching size resizes the live canvas to that post size, so the preview is the real cover.
-sizeSelect.addEventListener('change', () => {
-  const size = SIZES[sizeSelect.value];
-  canvas.width = size.w;
-  canvas.height = size.h;
-  redraw();
-});
+function bindText(inputId, key) {
+  const input = document.getElementById(inputId);
+  input.addEventListener("input", () => { state[key] = input.value; repaint(); });
+}
 
-// Exports the current cover at one size by drawing it on an offscreen canvas at that size.
-function exportSize(key) {
-  const size = SIZES[key];
-  const off = document.createElement('canvas');
-  off.width = size.w;
-  off.height = size.h;
-  drawCover(off, photos, {
-    caption: captionInput.value,
-    subtitle: subtitleInput.value,
-    grade: gradeSelect.value,
-  });
-  return new Promise((resolve) => {
-    off.toBlob((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `neon-heist-${size.w}x${size.h}.png`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-      resolve(`neon-heist-${size.w}x${size.h}.png`);
-    }, 'image/png');
+function bindRadios(name, key) {
+  document.querySelectorAll(`input[name="${name}"]`).forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (radio.checked) { state[key] = radio.value; repaint(); }
+    });
   });
 }
 
-document.getElementById('export').addEventListener('click', async () => {
-  const name = await exportSize(sizeSelect.value);
-  status.textContent = `Saved ${name}`;
-});
-
-document.getElementById('export-all').addEventListener('click', async () => {
-  const names = [];
-  for (const key of Object.keys(SIZES)) names.push(await exportSize(key));
-  status.textContent = `Saved ${names.join(', ')}`;
-});
-
-const shot = new URLSearchParams(location.search).get('shot');
-if (shot) {
-  runShot(shot, new URLSearchParams(location.search), async (scene) => {
-    if (scene.hero) photos.hero.img = await loadImage(scene.hero);
-    if (scene.partner) photos.partner.img = await loadImage(scene.partner);
-    if (scene.caption) captionInput.value = scene.caption;
-    if (scene.subtitle !== undefined) subtitleInput.value = scene.subtitle;
-    if (scene.grade) gradeSelect.value = scene.grade;
-    if (scene.size && SIZES[scene.size]) {
-      sizeSelect.value = scene.size;
-      canvas.width = SIZES[scene.size].w;
-      canvas.height = SIZES[scene.size].h;
-    }
-    // Wait for the shipped fonts before painting, so the lettering is the real one.
-    await document.fonts.ready;
-    redraw();
+function downloadCanvas(canvas, filename) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      if (!blob) { resolve(false); return; }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      resolve(true);
+    }, "image/png");
   });
+}
+
+async function exportOne() {
+  const size = currentSize();
+  const canvas = renderCoverToCanvas(size.w, size.h, state);
+  await downloadCanvas(canvas, `neon-heist-${state.size}.png`);
+}
+
+async function exportAll() {
+  for (const key of Object.keys(SIZES)) {
+    const size = SIZES[key];
+    const canvas = renderCoverToCanvas(size.w, size.h, state);
+    await downloadCanvas(canvas, `neon-heist-${key}.png`);
+  }
+}
+
+function bindExports() {
+  document.getElementById("exportOne").addEventListener("click", exportOne);
+  document.getElementById("exportAll").addEventListener("click", exportAll);
+  const clearB = document.getElementById("clearB");
+  if (clearB) {
+    clearB.addEventListener("click", () => {
+      state.partner = null;
+      repaint();
+    });
+  }
+}
+
+export async function startEditor() {
+  bindPhoto("photoA", "sampleA", "hero");
+  bindPhoto("photoB", "sampleB", "partner");
+  bindCrop("A", "hero");
+  bindCrop("B", "partner");
+  bindText("title", "title");
+  bindText("subtitle", "subtitle");
+  bindText("stamp", "stamp");
+  bindRadios("grade", "grade");
+  bindRadios("size", "size");
+  bindExports();
+  try {
+    state.hero = await loadSample("samples/boulevard.jpg");
+    state.partner = await loadSample("samples/pier.jpg");
+  } catch { /* samples are optional; the user can pick their own photos */ }
+  await document.fonts.ready;
+  repaint();
+}
+
+const params = new URLSearchParams(window.location.search);
+if (params.has("shot")) {
+  applyShotMode(params, state, { stage, stageCtx, repaint, loadSample });
 } else {
-  // A first paint with the sample photos, so the editor never opens empty.
-  loadImage('samples/boulevard.jpg').then((img) => { photos.hero.img = img; redraw(); }).catch(() => redraw());
-  loadImage('samples/pier.jpg').then((img) => { photos.partner.img = img; redraw(); }).catch(() => redraw());
-  redraw();
+  startEditor();
 }

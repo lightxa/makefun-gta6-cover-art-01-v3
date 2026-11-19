@@ -3,64 +3,89 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Neon Heist — Diagonal Cover Maker</title>
+<title>Neon Heist — Cover Maker</title>
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-<main class="app">
-  <section class="controls" aria-label="Cover controls">
-    <h1>Neon Heist</h1>
-    <p class="tagline">Two photos, one diagonal slash, a neon night poster. Your photos never leave this machine.</p>
-
-    <fieldset class="photo-slot">
-      <legend>Hero photo — top panel</legend>
-      <label class="file-label">Choose a photo <input id="photo-hero" type="file" accept="image/*"></label>
-      <button id="sample-hero" type="button">Use sample photo</button>
-      <label>Zoom <input id="zoom-hero" type="range" min="1" max="2.5" step="0.01" value="1"></label>
-      <label>Left / right <input id="dx-hero" type="range" min="-1" max="1" step="0.01" value="0"></label>
-      <label>Up / down <input id="dy-hero" type="range" min="-1" max="1" step="0.01" value="0"></label>
-    </fieldset>
-
-    <fieldset class="photo-slot">
-      <legend>Partner photo — bottom panel</legend>
-      <label class="file-label">Choose a photo <input id="photo-partner" type="file" accept="image/*"></label>
-      <button id="sample-partner" type="button">Use sample photo</button>
-      <label>Zoom <input id="zoom-partner" type="range" min="1" max="2.5" step="0.01" value="1"></label>
-      <label>Left / right <input id="dx-partner" type="range" min="-1" max="1" step="0.01" value="0"></label>
-      <label>Up / down <input id="dy-partner" type="range" min="-1" max="1" step="0.01" value="0"></label>
-    </fieldset>
-
-    <label>Caption <input id="caption" type="text" maxlength="32" value="Neon Heist"></label>
-    <label>Subtitle <input id="subtitle" type="text" maxlength="40" value="two crews, one night"></label>
-
-    <label>Night grade
-      <select id="grade">
-        <option value="neon" selected>Neon Heist — magenta &amp; cyan</option>
-        <option value="sunset">Vice Sunset — orange &amp; pink</option>
-        <option value="midnight">Midnight — teal &amp; blue</option>
-      </select>
-    </label>
-
-    <label>Post size
-      <select id="size">
-        <option value="square" selected>Square 1080 x 1080</option>
-        <option value="portrait">Portrait 1080 x 1350</option>
-        <option value="landscape">Landscape 1920 x 1080</option>
-      </select>
-    </label>
-
-    <div class="export-row">
-      <button id="export" type="button">Export this size as PNG</button>
-      <button id="export-all" type="button">Export all three sizes</button>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">NH</span>
+    <div>
+      <h1>Neon Heist</h1>
+      <p>Turn two photos and a caption into a neon-heist cover.</p>
     </div>
-    <p id="status" role="status"></p>
+  </div>
+  <p class="privacy">Your photos never leave this machine. No upload, no network.</p>
+</header>
+
+<main class="layout">
+  <section class="stage-panel" aria-label="Live preview">
+    <div class="stage-frame">
+      <canvas id="stage" width="900" height="900"></canvas>
+    </div>
+    <p class="stage-hint">Live preview — what you see is the exported cover.</p>
   </section>
 
-  <section class="preview" aria-label="Live cover preview">
-    <canvas id="cover" width="1080" height="1080" aria-label="The cover"></canvas>
-    <p class="hint">Live preview — drag the sliders to crop and position each photo.</p>
-  </section>
+  <aside class="controls" aria-label="Cover controls">
+    <section class="card" id="photoA-card">
+      <h2>Photo A — hero panel</h2>
+      <label class="file-btn">Choose photo A
+        <input type="file" id="photoA" accept="image/*">
+      </label>
+      <button type="button" class="ghost-btn" id="sampleA">Use sample photo A</button>
+      <label>Zoom <input type="range" id="zoomA" min="0.8" max="2.4" step="0.01" value="1.0"></label>
+      <label>Move left / right <input type="range" id="panXA" min="-0.5" max="0.5" step="0.01" value="0"></label>
+      <label>Move up / down <input type="range" id="panYA" min="-0.5" max="0.5" step="0.01" value="0.30"></label>
+    </section>
+
+    <section class="card" id="photoB-card">
+      <h2>Photo B — partner panel</h2>
+      <label class="file-btn">Choose photo B
+        <input type="file" id="photoB" accept="image/*">
+      </label>
+      <button type="button" class="ghost-btn" id="sampleB">Use sample photo B</button>
+      <button type="button" class="ghost-btn" id="clearB">One photo fills both panels</button>
+      <label>Zoom <input type="range" id="zoomB" min="0.8" max="2.4" step="0.01" value="1.0"></label>
+      <label>Move left / right <input type="range" id="panXB" min="-0.5" max="0.5" step="0.01" value="0"></label>
+      <label>Move up / down <input type="range" id="panYB" min="-0.5" max="0.5" step="0.01" value="0.30"></label>
+    </section>
+
+    <section class="card" id="words-card">
+      <h2>Words</h2>
+      <label>Title
+        <input type="text" id="title" value="Neon Heist" maxlength="24">
+      </label>
+      <label>Subtitle
+        <input type="text" id="subtitle" value="two crews, one night" maxlength="40">
+      </label>
+      <label>Stamp
+        <input type="text" id="stamp" value="TWO CREWS · ONE NIGHT" maxlength="32">
+      </label>
+    </section>
+
+    <section class="card" id="grade-card">
+      <h2>Night grade</h2>
+      <div class="swatches" role="radiogroup" aria-label="Night grade">
+        <label><input type="radio" name="grade" value="neon" checked> Neon Heist</label>
+        <label><input type="radio" name="grade" value="sunset"> Vice Sunset</label>
+        <label><input type="radio" name="grade" value="midnight"> Midnight</label>
+      </div>
+    </section>
+
+    <section class="card" id="size-card">
+      <h2>Post size</h2>
+      <div class="swatches" role="radiogroup" aria-label="Post size">
+        <label><input type="radio" name="size" value="square" checked> Square 1080 × 1080</label>
+        <label><input type="radio" name="size" value="portrait"> Portrait 1080 × 1350</label>
+        <label><input type="radio" name="size" value="landscape"> Wide 1920 × 1080</label>
+      </div>
+      <button type="button" class="primary-btn" id="exportOne">Download this size as PNG</button>
+      <button type="button" class="primary-btn wide" id="exportAll">Export all three sizes</button>
+      <p class="fineprint">Three steps: pick photos, write the caption, export. That is the whole job.</p>
+    </section>
+  </aside>
 </main>
+
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

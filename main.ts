@@ -1,36 +1,32 @@
-// Neon Heist, a gta6-cover-art-01 entry (Node 22, standard library only): the app is this directory's
-// app/ folder, plain static files a desktop browser loads offline (app/index.html and its ES modules,
-// two OFL fonts under app/fonts/, no library and no network request), and this program hands it in.
-// It copies app/ and screenshots/ from beside this file to /output and writes /output/dossier.json,
-// the summary the judge reads, with the vendored make.fun library.
-//
-// The app turns two photos and a caption into a diagonal-split neon-heist cover: a hero panel and a
-// partner panel sliced by a bold diagonal, a magenta-cyan night grade, and a big condensed title with
-// a hard shadow and a neon script subtitle, exported as a PNG in 1080 x 1080, 1080 x 1350 and
-// 1920 x 1080. Serve it locally with `node serve.ts`, then open http://localhost:8080.
-// Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
+// Neon Heist entry program (Node 22, standard library only). It hands the
+// app in: copy this repository's app/ and screenshots/ beside this file into
+// the output directory and write /output/dossier.json with the vendored
+// make.fun library, exactly as the kit's starter does. Outside the grader,
+// MAKEFUN_OUTPUT_DIR stands in for /output, e.g.
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+// The run is deterministic: same input files, same output bytes.
 
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { buildDossier } from './vendor/makefun-app.ts';
+import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { buildDossier } from "./vendor/makefun-app.ts";
 
-const here = fileURLToPath(new URL('.', import.meta.url));
-const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+const repoRoot = fileURLToPath(new URL(".", import.meta.url));
+const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
 
-mkdirSync(out, { recursive: true });
-cpSync(join(here, 'app'), join(out, 'app'), { recursive: true });
-mkdirSync(join(out, 'screenshots'), { recursive: true });
-if (existsSync(join(here, 'screenshots'))) cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
+mkdirSync(outputDir, { recursive: true });
+cpSync(join(repoRoot, "app"), join(outputDir, "app"), { recursive: true });
+mkdirSync(join(outputDir, "screenshots"), { recursive: true });
+if (existsSync(join(repoRoot, "screenshots"))) {
+  cpSync(join(repoRoot, "screenshots"), join(outputDir, "screenshots"), { recursive: true });
+}
 
-// The scorer's own caps (reference/gate.json): only text_max_bytes shapes the bytes; the others refuse an entry the
-// scorer would refuse (more than 4 screenshots or one over 256 KiB; more than 993 files in app/ or 48 MiB of app
-// files, in all, or a path under app/ over 1000 bytes: app/ counts beside /output's own 1000-entry cap, its
-// screenshots/ and dossier.json).
+// The gate's caps from the kit (reference/gate.json): the dossier text is
+// capped at 160 KiB, at most 4 screenshots of at most 256 KiB each, app/ at
+// most 993 files and 48 MiB in all with no path over 1000 bytes.
 writeFileSync(
-  join(out, 'dossier.json'),
-  buildDossier(out, {
+  join(outputDir, "dossier.json"),
+  buildDossier(outputDir, {
     text_max_bytes: 163840,
     screenshots: { max: 4, max_bytes: 262144 },
     app_max_files: 993,
