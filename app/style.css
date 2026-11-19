@@ -1,0 +1,42 @@
+@font-face {
+  font-family: 'Anton';
+  src: url('./fonts/Anton-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Pacifico';
+  src: url('./fonts/Pacifico-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+html, body { margin: 0; min-height: 100%; background: #0d0016; color: #f4eef7; font: 15px/1.45 system-ui, sans-serif; }
+.app { display: flex; gap: 28px; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; }
+.controls { display: flex; flex-direction: column; gap: 12px; width: 320px; flex: none; }
+.controls h1 { margin: 0; font-family: 'Anton', sans-serif; font-size: 40px; letter-spacing: 1px; color: #fff; text-shadow: 4px 4px 0 #ff2d78; }
+.tagline { margin: 0; color: #c9b8d4; }
+.photo-slot { border: 1px solid #3a2350; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.photo-slot legend { font-weight: 700; color: #ffd319; padding: 0 6px; }
+label { display: flex; flex-direction: column; gap: 5px; font-weight: 600; }
+.file-label { cursor: pointer; }
+input[type=text], select { font: inherit; padding: 9px; border: 1px solid #4a3560; border-radius: 6px; background: #1d0b2b; color: #fff; }
+input[type=range] { width: 100%; accent-color: #00e5ff; }
+button { font: inherit; font-weight: 700; padding: 10px 12px; border: 0; border-radius: 6px; background: #ff2d78; color: #fff; cursor: pointer; }
+button:hover { background: #ff4d8c; }
+#sample-hero, #sample-partner { background: #2b1450; color: #9be8ff; }
+.export-row { display: flex; gap: 8px; }
+.export-row button { flex: 1; }
+#export-all { background: #00b3a4; }
+#status { margin: 0; min-height: 1.4em; color: #9be8ff; }
+.preview { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.preview canvas { width: min(72vh, 62vw); height: auto; max-height: 82vh; box-shadow: 0 12px 44px rgba(0, 0, 0, 0.6); background: #14001f; }
+.hint { margin: 0; color: #8f7ba3; font-size: 13px; }
+body.shot-cover .controls, body.shot-cover .hint { display: none; }
+body.shot-cover .app { padding: 0; }
+body.shot-cover .preview canvas { width: 100vw; height: 100vh; max-height: none; box-shadow: none; object-fit: contain; }
+@media (max-width: 900px) {
+  .app { flex-direction: column; align-items: center; }
+  .controls { width: min(92vw, 420px); }
+  .preview canvas { width: min(92vw, 640px); }
+}
